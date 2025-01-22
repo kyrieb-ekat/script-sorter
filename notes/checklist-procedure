@@ -1,0 +1,50 @@
+Preprocess Data
+    Use the preprocess_data.py script to split the raw dataset into training, validation, and test sets:
+        python preprocess_data.py
+Confirm that the train, validation, and test directories are correctly populated.
+
+
+Model Training
+    Train Initial Model
+        Use the train_model.py script to train the VGG16 model:
+            python train_model.py
+        Save the trained model to /models/vgg16_initial.h5.
+
+    Fine-Tune the Model (Optional)
+        After initial training, modify the train_model.py script to unfreeze some layers of VGG16.
+        Retrain the model with a lower learning rate and save it as /models/vgg16_finetuned.h5.
+
+Model Evaluation
+    Evaluate on Test Set
+        Run evaluate_model.py to evaluate the model on unseen test images:
+            python evaluate_model.py
+    Verify results:
+        Classification Report: Check /results/classification_report.txt.
+        Confusion Matrix: View /results/confusion_matrix.png.
+
+Inference
+    Classify New Images
+        Use predict_image.py to classify individual images:
+            python predict_image.py --image /path/to/image.jpg
+    Confirm the predicted class and confidence score.
+
+Refinements and Next Steps
+
+    Enhance Data Preparation
+        Ensure robust data augmentation is applied in train_model.py.
+        Consider increasing the dataset size by including more samples or using synthetic data.
+
+    Track Metrics
+        Review metrics like accuracy, precision, recall, F1-score, and the confusion matrix.
+        Adjust the training process based on insights (e.g., handling class imbalance).
+
+    Document the Experiment
+        Update README.md with:
+            Objectives
+            Data preprocessing methods
+            Model architecture and training details
+            Results and observations
+
+
+
+note: k-fold cross validation (implement), test on ResNet etc. Find the most recent historical handwritten survey of performance and deep learning and try what they did. 
