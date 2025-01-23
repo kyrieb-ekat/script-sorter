@@ -1,7 +1,7 @@
 import os
 import shutil
 import random
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split # type: ignore
 
 def split_dataset(dataset_dir, output_dir, train_size=0.7, val_size=0.15):
     for class_dir in os.listdir(dataset_dir):

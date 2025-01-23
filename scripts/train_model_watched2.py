@@ -17,8 +17,8 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import VGG16, ResNet50
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from sklearn.model_selection import KFold
-from sklearn.manifold import TSNE
+from sklearn.model_selection import KFold # type: ignore
+from sklearn.manifold import TSNE # type: ignore
 import numpy as np
 import os
 import math
