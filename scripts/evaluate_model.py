@@ -1,30 +1,69 @@
 import tensorflow as tf
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-# Load model and test data
-model_path = '/Users/ekaterina/documents/script-sorter/models/vgg16_fold5_v20250121_213938.keras' # in future change this to .keras
+# Paths
+model_path = '/Users/ekaterina/documents/script-sorter/models/vgg16_fold5_v20250121_213938.keras'
 test_dir = '/Users/ekaterina/documents/script-sorter/dataset/test'
+results_dir = Path('/Users/ekaterina/documents/script-sorter/results')
+results_dir.mkdir(parents=True, exist_ok=True)
+
+# Constants
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 
+# Load model
 model = tf.keras.models.load_model(model_path)
+
+# Load test data
 test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
 test_data = test_datagen.flow_from_directory(test_dir, target_size=IMG_SIZE, batch_size=BATCH_SIZE, class_mode='categorical', shuffle=False)
 
 # Predictions
-predictions = model.predict(test_data)
-y_pred = np.argmax(predictions, axis=1)
-y_true = test_data.classes
+y_prob = model.predict(test_data)  # Probability outputs
+y_pred = np.argmax(y_prob, axis=1)  # Predicted labels
+y_true = test_data.classes  # True labels
+class_names = list(test_data.class_indices.keys())
 
-# Metrics
-print(classification_report(y_true, y_pred, target_names=test_data.class_indices.keys()))
+# Metrics: Classification Report
+report = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
+report_text = classification_report(y_true, y_pred, target_names=class_names)
+Path(results_dir / 'classification_report.txt').write_text(report_text)
+print(report_text)
+
+# Compute confusion matrix
 cm = confusion_matrix(y_true, y_pred)
 
-# Plot confusion matrix
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=test_data.class_indices.keys(), yticklabels=test_data.class_indices.keys())
+# Plot and save confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
-plt.savefig('/Users/ekaterina/documents/script-sorter/results/confusion_matrix.png')
+plt.title('Confusion Matrix')
+plt.savefig(results_dir / 'confusion_matrix.png')
+plt.show()
+
+# Compute per-class accuracy
+class_accuracies = cm.diagonal() / cm.sum(axis=1)
+accuracy_text = "\n".join([f"{class_names[i]}: {class_accuracies[i]:.4f}" for i in range(len(class_names))])
+Path(results_dir / 'per_class_accuracy.txt').write_text(accuracy_text)
+print("Per-Class Accuracy:")
+print(accuracy_text)
+
+# ROC Curves (One-vs-Rest for Multi-Class)
+plt.figure(figsize=(10, 8))
+for i, class_name in enumerate(class_names):
+    fpr, tpr, _ = roc_curve((y_true == i).astype(int), y_prob[:, i])
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, label=f'{class_name} (AUC = {roc_auc:.2f})')
+
+plt.plot([0, 1], [0, 1], 'k--')  # Diagonal line
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curves for Each Class')
+plt.legend(loc='lower right')
+plt.savefig(results_dir / 'roc_curves.png')
+plt.show()
