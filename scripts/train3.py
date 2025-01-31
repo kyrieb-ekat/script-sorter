@@ -12,15 +12,9 @@ from pathlib import Path
 import psutil
 import gc
 
-# Memory and GPU Configuration
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    except RuntimeError as e:
-        print(e)
+#tensorboard version is 2.18.0
 
+# Memory and GPU Configuration
 tf.config.set_soft_device_placement(True)
 tf.config.optimizer.set_jit(True)  # Enable XLA optimization
 
@@ -48,14 +42,22 @@ class MemoryMonitor(tf.keras.callbacks.Callback):
                     print(f"Unable to get GPU memory info: {str(e)}")
 
 # Memory management for GPU
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
+
+# Memory and GPU Configuration
 def get_available_memory():
     """Get available GPU memory in bytes"""
     if gpus:
         try:
             gpu = tf.config.experimental.get_gpu_device_properties('GPU:0')
             return gpu.memory_limit
-        except Exception as e:
-            print(f"Error retrieving GPU memory properties: {e}")
+        except:
             return 4e9  # Default to 4GB if can't get GPU memory
     return psutil.virtual_memory().available
 
@@ -89,6 +91,32 @@ os.makedirs('fold_data', exist_ok=True)
 
 def verify_data_directories():
     """Verify directory structure and count images in each class."""
+    def verify_dataset_size(directory, min_samples=MIN_SAMPLES_PER_CLASS):
+        """Verify dataset has enough samples per class and check image integrity"""
+        print(f"\nVerifying minimum samples in {os.path.basename(directory)}...")
+        for class_name in expected_classes:
+            class_path = os.path.join(directory, class_name)
+            valid_images = []
+            for f in os.listdir(class_path):
+                if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    img_path = os.path.join(class_path, f)
+                    try:
+                        # Try to open the image to verify it's not corrupted
+                        with Image.open(img_path) as img:
+                            img.verify()
+                        valid_images.append(f)
+                    except Exception as e:
+                        print(f"Warning: Corrupted or invalid image found: {img_path}")
+                        print(f"Error: {str(e)}")
+                        continue
+            
+            n_samples = len(valid_images)
+            if n_samples < min_samples:
+                raise ValueError(
+                    f"Class {class_name} in {os.path.basename(directory)} "
+                    f"has insufficient samples: {n_samples}. "
+                    f"Minimum required: {min_samples}"
+                )
     class_counts = {}
     for directory in [train_dir, val_dir, test_dir]:
         dir_name = os.path.basename(directory)
@@ -108,39 +136,6 @@ def verify_data_directories():
                 print(f"Class {class_name}: {n_images} images")
     return class_counts
 
-def verify_dataset_size(directory):
-    """Verify dataset has enough samples per class and check image integrity"""
-    def log_and_continue(img_path, error_message):
-        """Log error and continue with the next image"""
-        print(f"Error processing {img_path}: {error_message}")
-        # Optionally move problematic images to a separate folder
-        error_folder = 'error_images'
-        os.makedirs(error_folder, exist_ok=True)
-        shutil.move(img_path, os.path.join(error_folder, os.path.basename(img_path)))
-    
-    for class_name in expected_classes:
-        class_path = os.path.join(directory, class_name)
-        valid_images = []
-        for f in os.listdir(class_path):
-            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                img_path = os.path.join(class_path, f)
-                try:
-                    # Try to open the image to verify it's not corrupted
-                    with Image.open(img_path) as img:
-                        img.verify()
-                    valid_images.append(f)
-                except Exception as e:
-                    log_and_continue(img_path, str(e))
-                    continue
-            
-        n_samples = len(valid_images)
-        if n_samples < MIN_SAMPLES_PER_CLASS:
-            raise ValueError(
-                f"Class {class_name} in {os.path.basename(directory)} "
-                f"has insufficient samples: {n_samples}. "
-                f"Minimum required: {MIN_SAMPLES_PER_CLASS}"
-            )
-
 def create_dataset(directory, is_training=False):
     """Create a tf.data.Dataset from directory."""
     def preprocess_image(path):
@@ -152,6 +147,7 @@ def create_dataset(directory, is_training=False):
             return image
         except Exception as e:
             print(f"Error processing image {path}: {str(e)}")
+            # Return a placeholder image or raise the exception based on your needs
             raise RuntimeError(f"Failed to process image {path}: {str(e)}")
 
     def augment(image):
@@ -188,12 +184,7 @@ def create_dataset(directory, is_training=False):
     dataset = dataset.prefetch(AUTOTUNE)
     return dataset, len(image_paths)
 
-def get_disk_space():
-    """Check available disk space"""
-    total, used, free = shutil.disk_usage("/")
-    return free / (1024 * 1024 * 1024)  # In GB
-
-def create_model(architecture='vgg16'):
+def create_model(architecture='resnet50'):
     """Create model with specified base architecture."""
     if architecture == 'vgg16':
         base_model = VGG16(weights='imagenet', include_top=False, 
@@ -254,9 +245,9 @@ def train_with_kfold():
     # Monitor initial memory state
     process = psutil.Process(os.getpid())
     print(f"\nInitial RAM usage: {process.memory_info().rss / 1024 / 1024:.2f} MB")
-    
-    disk_space = get_disk_space()
-    print(f"Available disk space: {disk_space:.2f} GB")
+    if gpus:
+        print("Initial GPU memory state:", 
+              tf.config.experimental.get_memory_info('GPU:0'))
 
     # Get all image paths and labels
     image_paths = []
@@ -268,50 +259,98 @@ def train_with_kfold():
                        if fname.lower().endswith(('.png', '.jpg', '.jpeg'))]
         image_paths.extend(class_images)
         labels.extend([class_idx] * len(class_images))
-    
-    # Perform K-fold cross-validation
-    kfold = KFold(n_splits=NUM_FOLDS, shuffle=True, random_state=42)
-    fold_accuracies = []
-    
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(image_paths, labels)):
-        print(f"\nTraining Fold {fold+1}/{NUM_FOLDS}")
+
+    # Convert to numpy arrays
+    image_paths = np.array(image_paths)
+    labels = np.array(labels)
+
+    # Initialize K-fold
+    kf = KFold(n_splits=NUM_FOLDS, shuffle=True, random_state=42)
+    fold_histories = []
+
+    # K-fold cross-validation
+    for fold, (train_idx, val_idx) in enumerate(kf.split(image_paths)):
+        print(f"\nTraining fold {fold + 1}/{NUM_FOLDS}")
         
-        train_paths = [image_paths[i] for i in train_idx]
-        val_paths = [image_paths[i] for i in val_idx]
-        train_labels = [labels[i] for i in train_idx]
-        val_labels = [labels[i] for i in val_idx]
+        # Prepare data for this fold
+        train_paths, val_paths = image_paths[train_idx], image_paths[val_idx]
+        train_labels, val_labels = labels[train_idx], labels[val_idx]
         
-        # Prepare fold data
-        train_fold_dir, val_fold_dir = prepare_fold_data(
+        # Create temporary directories and datasets for this fold
+        fold_train_dir, fold_val_dir = prepare_fold_data(
             train_paths, train_labels, val_paths, val_labels, fold)
         
-        # Load datasets for the current fold
-        train_dataset, _ = create_dataset(train_fold_dir, is_training=True)
-        val_dataset, _ = create_dataset(val_fold_dir, is_training=False)
-
-        # Model creation
-        model = create_model()
+        train_dataset, train_size = create_dataset(fold_train_dir, is_training=True)
+        val_dataset, val_size = create_dataset(fold_val_dir, is_training=False)
         
-        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', 
-                      metrics=['accuracy'])
+        # Create and compile model
+        model = create_model('vgg16')
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
         
-        # Callbacks for monitoring
-        early_stopping = EarlyStopping(monitor='val_accuracy', patience=5)
-        model_checkpoint = ModelCheckpoint(f'models/fold_{fold+1}.h5', 
-                                           save_best_only=True)
-        tensorboard = TensorBoard(log_dir=f'logs/fold_{fold+1}')
+        # Set up callbacks
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        callbacks = [
+            EarlyStopping(
+                monitor='val_loss',
+                patience=5,
+                verbose=1,
+                restore_best_weights=True,
+                mode='min'
+            ),
+            ModelCheckpoint(
+                f'models/fold_{fold + 1}_{timestamp}.keras',
+                monitor='val_loss',
+                save_best_only=True,
+                verbose=1,
+                mode='min'
+            ),
+            TensorBoard(
+                log_dir=f"logs/fit/fold_{fold + 1}_{timestamp}",
+                histogram_freq=1
+            ),
+            MemoryMonitor(print_interval=1)
+        ]
         
-        model.fit(train_dataset, validation_data=val_dataset, epochs=50, 
-                  callbacks=[early_stopping, model_checkpoint, tensorboard])
+        # Train the model
+        history = model.fit(
+            train_dataset,
+            epochs=20,
+            validation_data=val_dataset,
+            callbacks=callbacks
+        )
+        
+        fold_histories.append(history.history)
+        
+        # Clean up fold data
+        shutil.rmtree(f'fold_data/fold_{fold}')
+    
+    return fold_histories
 
-        # Store fold accuracy
-        val_accuracy = model.evaluate(val_dataset, verbose=0)[1]
-        fold_accuracies.append(val_accuracy)
-        print(f"Fold {fold+1} Validation Accuracy: {val_accuracy:.4f}")
-
-    print(f"\nMean Validation Accuracy: {np.mean(fold_accuracies):.4f}")
-    print(f"Standard Deviation: {np.std(fold_accuracies):.4f}")
-
-if __name__ == '__main__':
-    verify_data_directories()
-    train_with_kfold()
+if __name__ == "__main__":
+    print(f"\nOptimized batch size: {BATCH_SIZE}")
+    print("Verifying dataset requirements...")
+    
+    # Verify directory structure, minimum samples, and get class counts
+    class_counts = verify_data_directories()
+    
+    # Verify minimum samples in each split
+    for directory in [train_dir, val_dir, test_dir]:
+        verify_dataset_size(directory)
+    
+    # Print memory usage monitoring message
+    print("\nMonitoring memory usage...")
+    if gpus:
+        print("GPU memory usage:", tf.config.experimental.get_memory_info('GPU:0'))
+    
+    # Train model with K-fold cross validation
+    histories = train_with_kfold()
+    
+    # Calculate and print final metrics
+    final_val_accuracies = [h['val_accuracy'][-1] for h in histories]
+    mean_accuracy = np.mean(final_val_accuracies)
+    std_accuracy = np.std(final_val_accuracies)
+    print(f"\nFinal Cross-Validation Accuracy: {mean_accuracy:.4f} ± {std_accuracy:.4f}")
