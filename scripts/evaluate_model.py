@@ -4,12 +4,32 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
+from PIL import Image
+import warnings
+
+warnings.simplefilter("ignore", Image.DecompressionBombWarning)
 
 # Paths
-model_path = '/Users/ekaterina/documents/script-sorter/models/vgg16_fold5_v20250121_213938.keras'
-test_dir = '/Users/ekaterina/documents/script-sorter/dataset/test'
-results_dir = Path('/Users/ekaterina/documents/script-sorter/results')
+model_path = '/Users/kyriebouressa/Documents/script-sorter/scripts/models/fold_4_20250131_190118.keras'
+test_dir = '/Users/kyriebouressa/Documents/script-sorter/dataset/test'
+results_dir = Path('/Users/kyriebouressa/Documents/script-sorter/results')
 results_dir.mkdir(parents=True, exist_ok=True)
+
+# Debug: Check image files directly
+for root, dirs, files in os.walk(test_dir):
+    for file in files:
+        # Check if file is an image (you could further refine this)
+        if not file.lower().endswith(('.jpg', '.jpeg', '.png')):
+            print(f"Skipping non-image file: {file}")
+            continue
+        full_path = os.path.join(root, file)
+        try:
+            img = Image.open(full_path)
+            img.verify()
+        except Exception as e:
+            print(f"Problem with file: {full_path} ({e})")
+
 
 # Constants
 IMG_SIZE = (224, 224)

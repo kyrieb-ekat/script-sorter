@@ -14,6 +14,10 @@ import gc
 
 #tensorboard version is 2.18.0
 
+# Disable the decompression bomb warning #if memory alerts happen, this is the first thing to check
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+
 # Memory and GPU Configuration
 tf.config.set_soft_device_placement(True)
 tf.config.optimizer.set_jit(True)  # Enable XLA optimization
@@ -79,7 +83,7 @@ MIN_SAMPLES_PER_CLASS = 50  # Minimum samples required per class
 BATCH_SIZE = optimize_batch_size(get_available_memory(), IMAGE_SIZE)
 
 # Directory setup
-dataset_dir = 'dataset'
+dataset_dir = '/Users/kyriebouressa/documents/script-sorter/dataset'
 train_dir = os.path.join(dataset_dir, 'train')
 val_dir = os.path.join(dataset_dir, 'validation')
 test_dir = os.path.join(dataset_dir, 'test')
@@ -89,44 +93,46 @@ expected_classes = ['0', '1', '2', '3', '4']
 os.makedirs('models', exist_ok=True)
 os.makedirs('fold_data', exist_ok=True)
 
+# Global verify_dataset_size function
+def verify_dataset_size(directory, min_samples=MIN_SAMPLES_PER_CLASS):
+    """Verify dataset has enough samples per class and check image integrity."""
+    print(f"\nVerifying minimum samples in {os.path.basename(directory)}...")
+    for class_name in expected_classes:
+        class_path = os.path.join(directory, class_name)
+        valid_images = []
+        for f in os.listdir(class_path):
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img_path = os.path.join(class_path, f)
+                try:
+                    # Try to open the image to verify it's not corrupted
+                    with Image.open(img_path) as img:
+                        img.verify()
+                    valid_images.append(f)
+                except Exception as e:
+                    print(f"Warning: Corrupted or invalid image found: {img_path}")
+                    print(f"Error: {str(e)}")
+                    continue
+
+        n_samples = len(valid_images)
+        if n_samples < min_samples:
+            raise ValueError(
+                f"Class {class_name} in {os.path.basename(directory)} "
+                f"has insufficient samples: {n_samples}. "
+                f"Minimum required: {min_samples}"
+            )
+
 def verify_data_directories():
     """Verify directory structure and count images in each class."""
-    def verify_dataset_size(directory, min_samples=MIN_SAMPLES_PER_CLASS):
-        """Verify dataset has enough samples per class and check image integrity"""
-        print(f"\nVerifying minimum samples in {os.path.basename(directory)}...")
-        for class_name in expected_classes:
-            class_path = os.path.join(directory, class_name)
-            valid_images = []
-            for f in os.listdir(class_path):
-                if f.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    img_path = os.path.join(class_path, f)
-                    try:
-                        # Try to open the image to verify it's not corrupted
-                        with Image.open(img_path) as img:
-                            img.verify()
-                        valid_images.append(f)
-                    except Exception as e:
-                        print(f"Warning: Corrupted or invalid image found: {img_path}")
-                        print(f"Error: {str(e)}")
-                        continue
-            
-            n_samples = len(valid_images)
-            if n_samples < min_samples:
-                raise ValueError(
-                    f"Class {class_name} in {os.path.basename(directory)} "
-                    f"has insufficient samples: {n_samples}. "
-                    f"Minimum required: {min_samples}"
-                )
     class_counts = {}
     for directory in [train_dir, val_dir, test_dir]:
         dir_name = os.path.basename(directory)
         print(f"\nChecking {dir_name} directory:")
         class_dirs = sorted(os.listdir(directory))
         print(f"Found classes: {class_dirs}")
-        
+
         if not all(cls in class_dirs for cls in expected_classes):
             raise ValueError(f"Missing some class directories in {dir_name}!")
-        
+
         for class_name in class_dirs:
             class_path = os.path.join(directory, class_name)
             if os.path.isdir(class_path):
@@ -134,7 +140,12 @@ def verify_data_directories():
                               if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
                 class_counts[class_name] = n_images
                 print(f"Class {class_name}: {n_images} images")
+        
+        # Now call the global verify_dataset_size function here
+        verify_dataset_size(directory)
+
     return class_counts
+
 
 def create_dataset(directory, is_training=False):
     """Create a tf.data.Dataset from directory."""
