@@ -71,6 +71,19 @@ https://bvpb.mcu.es/es/consulta/registro.cmd?id=449895
     Referencias: Agustin Millares Carlo. Manuscritos visigóticos: notas bibliográficas. Barcelona: Atenas, A.G., 1963. (Monumenta Hispaniae Sacra. Subsidia ; vol. I), n. 35
     Referencias: Manuel Díaz y Díaz. Códices visigóticos en la monarquía leonesa. León: Centro de Estudios e Investigación San isidoro (C.S.I.C.), 1983, n. 14
 
+P-Cua (Coimbra) Arquivo Distrital e da Universidade IV-3ª Gav. 44 (22)
+    https://pemdatabase.eu/source/46581
+    2 images, deprecated/damaged
+
+Liber Misticus S(X)
+    https://bvpb.mcu.es/es/consulta/registro.cmd?id=409852
+    Título:[Liber misticus] [Manuscrito]
+    Sección: Manuscrito antiguo hasta s. XIX
+    Publicación:[S.l. : s.n.], [S. X]
+    Descripción física:230 h. : perg. ; 38 x 28 cm
+    Notas:
+    Referencias: Ruiz García, Elisa. Catálogo de la sección de códices de la Real Academia de la Historia. Madrid: Real Academia de la Historia, 1997, cod. 30
+
 2_beneventano
 1) "C32"
 https://www.internetculturale.it/jmms/iccuviewer/iccu.jsp?id=oai%3Awww.internetculturale.sbn.it%2FTeca%3A20%3ANT0000%3ACNMD%5C%5C0000016295&mode=all&teca=MagTeca+-+ICCU
@@ -99,9 +112,33 @@ NOTE: this manuscript will have a lot of really complicated and mutiliated pages
     Hand: Beneventan script.
     Musical Notation: Beneventan notation on 11 staves of a red, a yellow and a dry point line. In the gospels in Lent the parts are indicated with L and + (fol. 28v), in the passions with 1 (e), s and + (fol. 41v).
 
+3) P-Cug (Coimbra) Biblioteca Geral da Universidade MM 1063 (63)
+https://pemdatabase.eu/source/97169
+Fragmentary. 
+Archive: P-Cug (Coimbra) Biblioteca Geral da Universidade
+Shelfmark: MM 1063 (63)
+Siglum: P-Cug MM 1063 (63)
+Source type: Missal
+Subcategory of source: Plenary missal
+Category: monophony
+Completeness: fragment
+Document type: manuscript
+Date: 13th century, 2nd half
+Contents: Neo-Gregorian (i.e., mostly newer texts on older melodies), south-Italian (Beneventan?) mass for the Octave of Epiphany.
+Type of script: other
+Type of notation: Beneventan
+Description of the notation: Late-style Beneventan notation with F- and C-clefs and red four-line staves.
+Decoration: Red and blue initials with occasional red filler.
+Condition of document: Very good overall. Only about one line of text and music on recto rendered illegible by book-binding exposure.
+Dimensions: 375 x 245 mm. Two columns, each measuring 290 x 90 mm.
+
 3_square
 1) CDN RSC MS0073 frag 2) Plimpton Antiphonal MS 041
 
+## France, Arras, Médiathèque de l'Abbaye Saint-Vaast - 465 (CGM 893)
+    ark:/63955/md462514r198  Lien vers le manuscrit
+    IIIF: https://api.irht.cnrs.fr/ark:/63955/fyai29v5ts0v/manifest.json
+    Two columns in multiple colors, with some flourishes and other initials.
 
 Plimpton 41
     Antiphonal MS 041

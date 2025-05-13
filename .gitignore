@@ -1,1 +1,4 @@
-dataset/ echo models/ echo *.keras echo *.jpg
+dataset/ 
+models/ 
+*.keras
+*.jpg
